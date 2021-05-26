@@ -178,7 +178,6 @@ namespace ProjectA
                 case ControlPktOp.ConnectionRequestApproved:
                     return ErrorCode.OK;
                 case ControlPktOp.ConnectionRequestRejected:
-                    Close();
                     return ErrorCode.ConnectionRejected;
                 default:
                     return ErrorCode.InvalidOpcode;
@@ -233,6 +232,14 @@ namespace ProjectA
         ////
         //      Public Instance Methods
         ////
+
+        // Checks for an error, if one is found print the error, and close the connection.
+        public void CheckError (ErrorCode err) {
+            if (err != ErrorCode.OK) {
+                Console.WriteLine ("CheckError() error: " + err.ToString ());
+                Close ();
+            }
+        }
 
         /// Closes the control driver.
         public void Close()
@@ -525,8 +532,17 @@ namespace ProjectA
             return m_DiscoveryDevices;
         }
 
+        /// Gets an discovery device by name.
+        public DiscoveryDriverDevice GetDiscoveryDeviceByName(string name)
+        {
+            foreach (DiscoveryDriverDevice device in m_DiscoveryDevices)
+                if (String.Compare(device.GetName(), name, true) == 0)
+                    return device;
 
-        // Returns if the current discovery is done.
+            return null;
+        }
+
+        /// Returns if the current discovery is done.
         public bool GetDone()
         {
             return m_Done;
