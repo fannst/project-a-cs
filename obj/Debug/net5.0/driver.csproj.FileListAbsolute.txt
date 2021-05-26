@@ -1,0 +1,16 @@
+/mnt/data/Projects/C#/driver/bin/Debug/net5.0/driver
+/mnt/data/Projects/C#/driver/bin/Debug/net5.0/driver.deps.json
+/mnt/data/Projects/C#/driver/bin/Debug/net5.0/driver.runtimeconfig.json
+/mnt/data/Projects/C#/driver/bin/Debug/net5.0/driver.runtimeconfig.dev.json
+/mnt/data/Projects/C#/driver/bin/Debug/net5.0/driver.dll
+/mnt/data/Projects/C#/driver/bin/Debug/net5.0/ref/driver.dll
+/mnt/data/Projects/C#/driver/bin/Debug/net5.0/driver.pdb
+/mnt/data/Projects/C#/driver/obj/Debug/net5.0/driver.csprojAssemblyReference.cache
+/mnt/data/Projects/C#/driver/obj/Debug/net5.0/driver.GeneratedMSBuildEditorConfig.editorconfig
+/mnt/data/Projects/C#/driver/obj/Debug/net5.0/driver.AssemblyInfoInputs.cache
+/mnt/data/Projects/C#/driver/obj/Debug/net5.0/driver.AssemblyInfo.cs
+/mnt/data/Projects/C#/driver/obj/Debug/net5.0/driver.csproj.CoreCompileInputs.cache
+/mnt/data/Projects/C#/driver/obj/Debug/net5.0/driver.dll
+/mnt/data/Projects/C#/driver/obj/Debug/net5.0/ref/driver.dll
+/mnt/data/Projects/C#/driver/obj/Debug/net5.0/driver.pdb
+/mnt/data/Projects/C#/driver/obj/Debug/net5.0/driver.genruntimeconfig.cache
