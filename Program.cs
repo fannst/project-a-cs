@@ -9,7 +9,7 @@ namespace driver
         {
             DiscoveryDriver discoveryDriver = new DiscoveryDriver (8084, 1000, 5, DiscoveryPacketDeviceID.ProjectA);
             discoveryDriver.Start ();
-            while (!discoveryDriver.IsDone ());
+            while (!discoveryDriver.GetDone ());
             
             foreach (DiscoveryDriverDevice device in discoveryDriver.GetDiscoveryDevices ()) {
                 Console.WriteLine (device.ToDeviceString ());

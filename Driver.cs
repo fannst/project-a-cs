@@ -43,40 +43,41 @@ namespace ProjectA
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct ControlPkt
     {
-        public ushort   totalLength;
-        public ushort   opCode;
+        public ushort totalLength;
+        public ushort opCode;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct ControlPkt_StepperInfo
     {
-        public byte     motor;
-        public byte     flags;
-        public int      targetPosition;
-        public int      currentPosition;
-        public ushort   minimumSpeed;
-        public ushort   currentSpeed;
-        public ushort   targetSpeed;
-        public byte     hasNext;
+        public byte motor;
+        public byte flags;
+        public int targetPosition;
+        public int currentPosition;
+        public ushort minimumSpeed;
+        public ushort currentSpeed;
+        public ushort targetSpeed;
+        public byte hasNext;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct ControlPkt_StepperMoveTo
     {
-        public byte     motor;
-        public uint     position;
-        public byte     hasNext;
+        public byte motor;
+        public uint position;
+        public byte hasNext;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct ControlPkt_StepperEnaDisa
     {
-        public byte     motor;
-        public byte     enabled;
-        public byte     hasNext;
+        public byte motor;
+        public byte enabled;
+        public byte hasNext;
     }
 
-    public class StepperInfo {
+    public class StepperInfo
+    {
         public readonly byte motor;
         public readonly byte flags;
         public readonly int targetPos;
@@ -86,7 +87,8 @@ namespace ProjectA
         public readonly int targetSpeed;
 
         /// Creates new stepper info instance.
-        public StepperInfo (byte motor, byte flags, int targetPos, int currentPos, int minSpeed, int currSpeed, int targetSpeed) {
+        public StepperInfo(byte motor, byte flags, int targetPos, int currentPos, int minSpeed, int currSpeed, int targetSpeed)
+        {
             this.motor = motor;
             this.flags = flags;
             this.targetPos = targetPos;
@@ -99,7 +101,9 @@ namespace ProjectA
 
     public class ControlDriver
     {
-        private TcpClient m_TCPClient;
+        ////
+        //      Data Types
+        ////
 
         public enum ErrorCode
         {
@@ -112,47 +116,33 @@ namespace ProjectA
             OK
         }
 
+        ////
+        //      Instance Variables
+        ////
+
+        private TcpClient m_TCPClient;
+
+
+        ////
+        //      Constructors / Destructors
+        ////
+
         /// Creates new ControlDriver instance.
         public ControlDriver()
         {
             m_TCPClient = null;
         }
 
-        /// Starts the driver.
-        public ErrorCode Start(IPAddress iPAddress, ushort port)
-        {
-            ErrorCode error;
-
-            // Creates and connects the TCP client.
-            m_TCPClient = new TcpClient();
-
-            try
-            {
-                m_TCPClient.Connect(iPAddress, port);
-            }
-            catch (SocketException e)
-            {
-                Console.WriteLine("Failed to connect: " + e.ToString());
-                return ErrorCode.SocketConnectionFailure;
-            }
-
-            // Sends the connectionr request and awaits the response.
-            if ((error = SendConnectionRequest()) != ErrorCode.OK)
-                return error;
-            if ((error = AwaitConnectionResponse()) != ErrorCode.OK)
-                return error;
-
-            // Returns OK.
-            return ErrorCode.OK;
-        }
+        ////
+        //      Private Instance Methods
+        ////
 
         /// Reads N bytes from the socket.
-        private byte[] ReadNBytes(int n)
+        private byte[] ReadBytesFromSocket(int n)
         {
             byte[] res = new byte[n];
             int i = 0;
 
-            // Stays in loop until we've read the N bytes we want.
             while (i < n)
             {
                 int read;
@@ -165,117 +155,12 @@ namespace ProjectA
             return res;
         }
 
-        /// Moves the specified stepper to specified position.
-        public ErrorCode MoveStepper(byte stepper, int pos)
-        {
-            ErrorCode error;
-            ControlPkt_StepperMoveTo moveTo = new ControlPkt_StepperMoveTo
-            {
-                motor = stepper,
-                position = (uint)pos,
-                hasNext = 0
-            };
 
-            // Sends the packet head and the move body.
-            if ((error = SendControlPacketHead(ControlPktOp.StepperMoveTo, Marshal.SizeOf(moveTo))) != ErrorCode.OK)
-                return error;
-            else if ((error = WriteBinary(moveTo)) != ErrorCode.OK)
-                return error;
-
-            // Return OK.
-            return ErrorCode.OK;
-        }
-
-        /// Enables or Disables the specified stepper.
-        public ErrorCode EnableDisableStepper(byte stepper, bool ena)
-        {
-            ErrorCode error;
-            ControlPkt_StepperEnaDisa enadisa = new ControlPkt_StepperEnaDisa
-            {
-                motor = stepper,
-                enabled = ena ? (byte)1 : (byte)0,
-                hasNext = 0
-            };
-
-            // Writes the packet head and the enadisa body.
-            if ((error = SendControlPacketHead(ControlPktOp.StepperEnableDisable, Marshal.SizeOf(enadisa))) != ErrorCode.OK)
-                return error;
-            else if ((error = WriteBinary(enadisa)) != ErrorCode.OK)
-                return error;
-
-            // Return OK.
-            return ErrorCode.OK;
-        }
-
-
-        /// Requests the stepper information.
-        public ErrorCode GetStepperInfo (ref List<StepperInfo> target) {
-            BinaryReader binaryReader;
-            byte[] bytes = null;
-
-            // Sends the data request.
-            ErrorCode error;
-            if ((error = SendControlPacketHead (ControlPktOp.StepperInfoRequest, 0)) != ErrorCode.OK)
-                return error;
-
-            // First reads the packet head, so we can check the total
-            //  length required, and read that.
-            bytes = ReadNBytes (4);
-            if (bytes == null)
-                return ErrorCode.SocketReadFailure;
-
-            // Parses the read header into structure.
-            ControlPkt controlPkt;
-            try {
-                binaryReader = new BinaryReader (new MemoryStream(bytes));
-                controlPkt = new ControlPkt {
-                    totalLength = binaryReader.ReadUInt16 (),
-                    opCode = binaryReader.ReadUInt16 ()
-                };
-            } catch (Exception e) {
-                Console.WriteLine ("Failed to parse status header: " + e.ToString ());
-                return ErrorCode.FormatError;
-            }
-
-            // Reads the N bytes specified by the control head.
-            bytes = ReadNBytes (controlPkt.totalLength);
-            if (bytes == null)
-                return ErrorCode.SocketReadFailure;
-
-            // Parses the read stepper info.
-            try {
-                binaryReader = new BinaryReader (new MemoryStream (bytes));
-                bool next = false;
-                do {
-                    ControlPkt_StepperInfo stepperInfo = new ControlPkt_StepperInfo {
-                        motor = binaryReader.ReadByte (),
-                        flags = binaryReader.ReadByte (),
-                        targetPosition = binaryReader.ReadInt32 (),
-                        currentPosition = binaryReader.ReadInt32 (),
-                        minimumSpeed = binaryReader.ReadUInt16 (),
-                        currentSpeed = binaryReader.ReadUInt16 (),
-                        targetSpeed = binaryReader.ReadUInt16 (),
-                        hasNext = binaryReader.ReadByte()
-                    };
-
-                    target.Add (new StepperInfo (stepperInfo.motor, stepperInfo.flags, stepperInfo.targetPosition,
-                        stepperInfo.currentPosition, stepperInfo.minimumSpeed, stepperInfo.currentSpeed, stepperInfo.targetSpeed));
-
-                    next = stepperInfo.hasNext == (byte) 1 ? true : false;
-                } while (next);
-            } catch (Exception e) {
-                Console.WriteLine ("Failed to parse stepper info: " + e.ToString ());
-                return ErrorCode.FormatError;
-            }
-
-            return ErrorCode.OK;
-        }
-
-        /// Awaits the response to  the connection request.
-        private ErrorCode AwaitConnectionResponse()
+        /// Awaits the response to the connection request.
+        private ErrorCode AwaitConnectionRequestResponse()
         {
             // Reads 4 bytes.
-            byte[] data = ReadNBytes(4);
+            byte[] data = ReadBytesFromSocket(4);
             if (data == null)
                 return ErrorCode.SocketReadFailure;
 
@@ -300,21 +185,15 @@ namespace ProjectA
             }
         }
 
-        /// Closes the control driver.
-        private void Close()
-        {
-            m_TCPClient.Close();
-            m_TCPClient = null;
-        }
 
         /// Sends the connection request.
         private ErrorCode SendConnectionRequest()
         {
-            return SendControlPacketHead(ControlPktOp.ConnectionRequest, 0);
+            return SendControlPacketBase(ControlPktOp.ConnectionRequest, 0);
         }
 
         /// Writes an object in binary to the socket.
-        private ErrorCode WriteBinary(object packet)
+        private ErrorCode WriteObjectAsBinary(object packet)
         {
             // Allocates the binary buffer.
             int size = Marshal.SizeOf(packet);
@@ -342,13 +221,169 @@ namespace ProjectA
         }
 
         /// Sends an control packet head to the socket.
-        private ErrorCode SendControlPacketHead(ControlPktOp op, int length)
+        private ErrorCode SendControlPacketBase(ControlPktOp op, int length)
         {
-            return WriteBinary(new ControlPkt
+            return WriteObjectAsBinary(new ControlPkt
             {
                 totalLength = ((ushort)(length + 4)),
                 opCode = (ushort)op
             });
+        }
+
+        ////
+        //      Public Instance Methods
+        ////
+
+        /// Closes the control driver.
+        public void Close()
+        {
+            m_TCPClient.Close();
+            m_TCPClient = null;
+        }
+
+        /// Starts the driver.
+        public ErrorCode Start(IPAddress iPAddress, ushort port)
+        {
+            ErrorCode error;
+
+            // Creates and connects the TCP client.
+            m_TCPClient = new TcpClient();
+
+            try
+            {
+                m_TCPClient.Connect(iPAddress, port);
+            }
+            catch (SocketException e)
+            {
+                Console.WriteLine("Failed to connect: " + e.ToString());
+                return ErrorCode.SocketConnectionFailure;
+            }
+
+            // Sends the connection request and awaits the response.
+            if ((error = SendConnectionRequest()) != ErrorCode.OK)
+                return error;
+            if ((error = AwaitConnectionRequestResponse()) != ErrorCode.OK)
+                return error;
+
+            // Returns OK.
+            return ErrorCode.OK;
+        }
+
+        /// Moves the specified stepper to specified position.
+        public ErrorCode MoveStepper(byte stepper, int pos)
+        {
+            ErrorCode error;
+            ControlPkt_StepperMoveTo moveTo = new ControlPkt_StepperMoveTo
+            {
+                motor = stepper,
+                position = (uint)pos,
+                hasNext = 0
+            };
+
+            // Sends the packet base and the move body.
+            if ((error = SendControlPacketBase(ControlPktOp.StepperMoveTo, Marshal.SizeOf(moveTo))) != ErrorCode.OK)
+                return error;
+            else if ((error = WriteObjectAsBinary(moveTo)) != ErrorCode.OK)
+                return error;
+
+            // Return OK.
+            return ErrorCode.OK;
+        }
+
+        /// Enables or Disables the specified stepper.
+        public ErrorCode EnableDisableStepper(byte stepper, bool ena)
+        {
+            ErrorCode error;
+            ControlPkt_StepperEnaDisa enadisa = new ControlPkt_StepperEnaDisa
+            {
+                motor = stepper,
+                enabled = ena ? (byte)1 : (byte)0,
+                hasNext = 0
+            };
+
+            // Writes the packet base and the enadisa body.
+            if ((error = SendControlPacketBase(ControlPktOp.StepperEnableDisable, Marshal.SizeOf(enadisa))) != ErrorCode.OK)
+                return error;
+            else if ((error = WriteObjectAsBinary(enadisa)) != ErrorCode.OK)
+                return error;
+
+            // Return OK.
+            return ErrorCode.OK;
+        }
+
+
+        /// Requests the stepper information.
+        public ErrorCode GetStepperInfo(ref List<StepperInfo> target)
+        {
+            BinaryReader binaryReader;
+            byte[] bytes = null;
+
+            // Sends the data request.
+            ErrorCode error;
+            if ((error = SendControlPacketBase(ControlPktOp.StepperInfoRequest, 0)) != ErrorCode.OK)
+                return error;
+
+            // First reads the packet head, so we can check the total
+            //  length required, and read that.
+            bytes = ReadBytesFromSocket(4);
+            if (bytes == null)
+                return ErrorCode.SocketReadFailure;
+
+            // Parses the read header into structure.
+            ControlPkt controlPkt;
+            try
+            {
+                binaryReader = new BinaryReader(new MemoryStream(bytes));
+                controlPkt = new ControlPkt
+                {
+                    totalLength = binaryReader.ReadUInt16(),
+                    opCode = binaryReader.ReadUInt16()
+                };
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Failed to parse status header: " + e.ToString());
+                return ErrorCode.FormatError;
+            }
+
+            // Reads the N bytes specified by the control head.
+            bytes = ReadBytesFromSocket(controlPkt.totalLength);
+            if (bytes == null)
+                return ErrorCode.SocketReadFailure;
+
+            // Parses the read stepper info.
+            try
+            {
+                binaryReader = new BinaryReader(new MemoryStream(bytes));
+
+                for (; ; )
+                {
+                    ControlPkt_StepperInfo stepperInfo = new ControlPkt_StepperInfo
+                    {
+                        motor = binaryReader.ReadByte(),
+                        flags = binaryReader.ReadByte(),
+                        targetPosition = binaryReader.ReadInt32(),
+                        currentPosition = binaryReader.ReadInt32(),
+                        minimumSpeed = binaryReader.ReadUInt16(),
+                        currentSpeed = binaryReader.ReadUInt16(),
+                        targetSpeed = binaryReader.ReadUInt16(),
+                        hasNext = binaryReader.ReadByte()
+                    };
+
+                    target.Add(new StepperInfo(stepperInfo.motor, stepperInfo.flags, stepperInfo.targetPosition,
+                        stepperInfo.currentPosition, stepperInfo.minimumSpeed, stepperInfo.currentSpeed, stepperInfo.targetSpeed));
+
+                    if (stepperInfo.hasNext == (byte)0)
+                        break;
+                };
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Failed to parse stepper info: " + e.ToString());
+                return ErrorCode.FormatError;
+            }
+
+            return ErrorCode.OK;
         }
     }
 
@@ -386,9 +421,17 @@ namespace ProjectA
 
     public class DiscoveryDriverDevice
     {
+        ////
+        //      Instance Variables
+        ////
+
         private ushort m_Port;
         IPAddress m_IPAddress;
         private string m_Name;
+
+        ////
+        //      Constructors / Destructors
+        ///
 
         public DiscoveryDriverDevice(ushort port, IPAddress iPAddress, string name)
         {
@@ -396,6 +439,10 @@ namespace ProjectA
             m_IPAddress = iPAddress;
             m_Name = name;
         }
+
+        ////
+        //      Getters / Setters
+        ////
 
         public IPAddress GetIPAddress()
         {
@@ -420,6 +467,23 @@ namespace ProjectA
 
     public class DiscoveryDriver
     {
+        ////
+        //      Data Types
+        ////
+
+        public enum ErrorCode
+        {
+            SocketCreationFailure,
+            SocketReadFailure,
+            SocketWriteFailure,
+            OngoingDiscoveryAlreadyHappening,
+            OK
+        }
+
+        ////
+        //      Instance Variables
+        ////
+
         private ushort m_Port;
         private int m_ReceptionTimeout;
         private ushort m_PacketCount;
@@ -429,20 +493,31 @@ namespace ProjectA
         private Task m_ReceptionTask;
         private DiscoveryPacketDeviceID m_DeviceID;
 
+        ////
+        //      Constructor / Destructors
+        ////
+
         /// Creates an new discovery driver instance.
         public DiscoveryDriver(ushort port, int receptionTimeout, ushort packetCount, DiscoveryPacketDeviceID deviceID)
         {
+            // Sets the user configuration.
             m_Port = port;
             m_ReceptionTimeout = receptionTimeout;
             m_PacketCount = packetCount;
             m_DeviceID = deviceID;
 
+            // Creates the UDP socket.
             m_UDPClient = new UdpClient();
             m_UDPClient.Client.Bind(new IPEndPoint(IPAddress.Any, port));
 
+            // Sets some default bullcrap.
             m_Done = true;
             m_DiscoveryDevices = null;
         }
+
+        ////
+        //      Getters / Setters
+        ////
 
         /// Gets an list of all the discovered devices.
         public List<DiscoveryDriverDevice> GetDiscoveryDevices()
@@ -450,51 +525,80 @@ namespace ProjectA
             return m_DiscoveryDevices;
         }
 
-        /// The on packet callback.
-        private void OnPacket(IAsyncResult res)
-        {
-            IPEndPoint from = new IPEndPoint(0, 0);
-            byte[] message = m_UDPClient.EndReceive(res, ref from);
 
-            // Attempts to parse the packet.
+        // Returns if the current discovery is done.
+        public bool GetDone()
+        {
+            return m_Done;
+        }
+
+        ////
+        //      Private Instance Methods
+        ////
+
+        /// Gets called on reception of possible discovery packet.
+        private void OnAsyncDiscoveryPacket(IPEndPoint from, byte[] data)
+        {
+            DiscoveryPacketResponse response = new DiscoveryPacketResponse();
+
+            // Reads the response packet, if it does not match the format
+            //  if it is for example to small, just return.. We do not care.
+            BinaryReader reader = new BinaryReader(new MemoryStream(data));
             try
             {
-                DiscoveryPacketResponse response = new DiscoveryPacketResponse();
-
-                // Reads the response packet.
-                BinaryReader reader = new BinaryReader(new MemoryStream(message));
                 response.devID = reader.ReadUInt16();
                 response.flags = reader.ReadByte();
                 response.port = reader.ReadUInt16();
                 response.nameLen = reader.ReadUInt16();
                 response.name = reader.ReadBytes(response.nameLen);
+            }
+            catch (Exception)
+            {
+                return;
+            }
 
-                // Makes sure the packet is an response, and contains the propper device id.
-                if (response.devID != (ushort)m_DeviceID || (response.flags & DiscoveryPacketFlags.Response) == 0)
+            // Makes sure the packet is an response, and contains the propper device id.
+            if (response.devID != (ushort)m_DeviceID || (response.flags & DiscoveryPacketFlags.Response) == 0)
+                return;
+
+            // Makes sure the packet is not part of it yet.
+            foreach (DiscoveryDriverDevice item in m_DiscoveryDevices)
+                if (item.GetIPAddress().Equals(from.Address))
                     return;
 
-                // Makes sure the packet is not part of it yet.
-                foreach (DiscoveryDriverDevice item in m_DiscoveryDevices)
-                {
-                    if (item.GetIPAddress().Equals(from.Address))
-                        return;
-                }
-
-                // Adds the new packet.
-                m_DiscoveryDevices.Add(new DiscoveryDriverDevice(response.port, from.Address, Encoding.UTF8.GetString(response.name)));
-            }
-            catch (Exception) { }
-
-            // Starts the new async receieve.
-            m_UDPClient.BeginReceive(new AsyncCallback(OnPacket), null);
+            // Adds the new packet.
+            m_DiscoveryDevices.Add(new DiscoveryDriverDevice(response.port, from.Address, Encoding.UTF8.GetString(response.name)));
         }
 
-        /// Starts the reception task, this will stop the discovery
-        ///  after N seconds.
-        private void StartReceptionTask()
+        /// The on packet callback.
+        private void OnAsyncUdpPacket(IAsyncResult res)
+        {
+            IPEndPoint from = new IPEndPoint(0, 0);
+            byte[] data = null;
+
+            // Reads the UDP packet.
+            try
+            {
+                data = m_UDPClient.EndReceive(res, ref from);
+            }
+            catch (SocketException e)
+            {
+                Console.WriteLine("Failed to read UDP packet: " + e.ToString());
+                return;
+            }
+
+            // Calls the on discovery packet callback.
+            OnAsyncDiscoveryPacket(from, data);
+
+            // Starts the new async receieve.
+            m_UDPClient.BeginReceive(new AsyncCallback(OnAsyncUdpPacket), null);
+        }
+
+        /// Starts the task which stops the discovery after N milliseconds.
+        private void StartTimeoutTask()
         {
             m_DiscoveryDevices = new List<DiscoveryDriverDevice>();
-            m_UDPClient.BeginReceive(new AsyncCallback(OnPacket), null);
+            m_UDPClient.BeginReceive(new AsyncCallback(OnAsyncUdpPacket), null);
 
             // Creates the reception task.
             m_ReceptionTask = new Task(() =>
@@ -508,51 +612,69 @@ namespace ProjectA
             m_ReceptionTask.Start();
         }
 
-        public bool IsDone()
-        {
-            return m_Done;
-        }
+        ////
+        //      Public Instance Methods
+        ////
 
         /// triggers the start of the discovery.
-        public void Start()
+        public ErrorCode Start()
         {
-            // Checks if we can actually claim the driver.
-            if (!m_Done)
-                throw new Exception("Ongoing discovery is already happening.");
+            ErrorCode error;
 
-            // Sets done to false.
-            m_Done = false;
+            // Checks if we can run new discovery, if so claim it or something.
+            if (!m_Done)
+                return ErrorCode.OngoingDiscoveryAlreadyHappening;
+            else
+                m_Done = false;
 
             // Sends the discovery packets.
             for (ushort i = 0; i < m_PacketCount; ++i)
-                SendDiscoveryPacket();
+                if ((error = SendDiscoveryPacket()) != ErrorCode.OK)
+                    return error;
 
             // Starts the reception task.
-            StartReceptionTask();
+            StartTimeoutTask();
+
+            // Return s OK
+            return ErrorCode.OK;
         }
 
-        /// Sends a single discovery packet.
-        public void SendDiscoveryPacket()
+        /// Writes an object as binary to the UDP broadcast socket.
+        public ErrorCode WriteObjectAsBinary(object packet)
         {
-            // Creates the packet.
-            DiscoveryPacketRequest request = new DiscoveryPacketRequest
-            {
-                devID = (ushort)DiscoveryPacketDeviceID.ProjectA,
-                flags = DiscoveryPacketFlags.Request
-            };
-
             // Allocates the binary buffer.
-            int size = Marshal.SizeOf(request);
+            int size = Marshal.SizeOf(packet);
             byte[] bytes = new byte[size];
 
-            // Turns the packet struct into binary array.
+            // Turns the packet into binary array.
             IntPtr ptr = Marshal.AllocHGlobal(size);
-            Marshal.StructureToPtr(request, ptr, true);
+            Marshal.StructureToPtr(packet, ptr, true);
             Marshal.Copy(ptr, bytes, 0, size);
             Marshal.FreeHGlobal(ptr);
 
             // Sends the broadcast packet.
-            m_UDPClient.Send(bytes, size, new IPEndPoint(IPAddress.Broadcast, m_Port));
+            try
+            {
+                m_UDPClient.Send(bytes, size, new IPEndPoint(IPAddress.Broadcast, m_Port));
+            }
+            catch (SocketException e)
+            {
+                Console.WriteLine("Failed to send UDP packet: " + e.ToString());
+                return ErrorCode.SocketWriteFailure;
+            }
+
+            // Returns OK.
+            return ErrorCode.OK;
+        }
+
+        /// Sends a single discovery packet.
+        public ErrorCode SendDiscoveryPacket()
+        {
+            return WriteObjectAsBinary(new DiscoveryPacketRequest
+            {
+                devID = (ushort)DiscoveryPacketDeviceID.ProjectA,
+                flags = DiscoveryPacketFlags.Request
+            });
         }
     }
 }
